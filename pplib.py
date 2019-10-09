@@ -2634,7 +2634,8 @@ def calculate_TOA(epoch, P, phi, DM=0.0, nu_ref1=np.inf, nu_ref2=np.inf):
 
 def load_data(filename, state=None, dedisperse=False, dededisperse=False,
         tscrunch=False, pscrunch=False, fscrunch=False, rm_baseline=True,
-        flux_prof=False, refresh_arch=True, return_arch=True, quiet=False):
+        flux_prof=False, refresh_arch=True, return_arch=True, quiet=False,
+        get_SNRs=True):
     """
     Load data from a PSRCHIVE archive.
 
@@ -2743,12 +2744,17 @@ def load_data(filename, state=None, dedisperse=False, dededisperse=False,
     masks = np.einsum('ij,k', weights_norm, np.ones(nbin))
     masks = np.einsum('j,ikl', np.ones(npol), masks)
     SNRs = np.zeros([nsub, npol, nchan])
-    for isub in range(nsub):
-        for ipol in range(npol):
-            for ichan in range(nchan):
-                SNRs[isub, ipol, ichan] = \
-                        arch.get_Integration(
-                                isub).get_Profile(ipol, ichan).snr()
+    if get_SNRs:  # KC: added this because computing all those SNRs was 
+                  # taking for-freaking-ever!
+        for isub in range(nsub):
+            for ipol in range(npol):
+                for ichan in range(nchan):
+                    SNRs[isub, ipol, ichan] = \
+                            arch.get_Integration(
+                                    isub).get_Profile(ipol, ichan).snr()
+    elif not quiet:
+        print("skipping SNRs")
+        
     #The rest is now ignoring npol...
     arch.pscrunch()
     if flux_prof:
