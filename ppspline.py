@@ -10,7 +10,7 @@
 #    an input nchan x nbin average portrait of aligned profiles, the model is a
 #    B-spline representation of the curve traced out by the nchan profile
 #    amplitude vectors in an nbin vector space.  Since the profile shapes are
-#    highly correlated, the B-spline representation can be reduced to << nbin 
+#    highly correlated, the B-spline representation can be reduced to << nbin
 #    dimensions, and is limited to ten dimensions.  Therefore, the profile
 #    variability is decomposed using PCA and a small number of eigenprofiles
 #    that encompass most of the profile evolution are selected.  The input data
@@ -71,6 +71,13 @@ class DataPortrait(DataPortrait):
         freqs = self.freqsxs[0]
         nu_lo = freqs.min()
         nu_hi = freqs.max()
+        #Check nbin
+        nbin = port.shape[1]
+        if nbin % 2 != 0:
+            print "nbin = %d is odd; cannot wavelet_smooth.\n"%nbin
+            smooth = False
+        elif np.modf(np.log2(nbin))[0] != 0.0:
+            print "nbin = %d is not a power of two; can only try wavelet_smooth to one level; recommend resampling to a power-of-two number of phase bins.\n"%nbin
         #Do principal component analysis
         eigval, eigvec = pca(port, mean_prof, pca_weights, quiet=quiet)
         #Get "significant" eigenvectors
@@ -126,7 +133,9 @@ class DataPortrait(DataPortrait):
             fp, ier, msg = None, None, None
         else:
             spl_weights = pca_weights
-            s = sfac
+            s = sfac * len(proj_port) * \
+                    np.sum((self.SNRsxs * self.noise_stdsxs)**2) / \
+                    sum(self.SNRsxs)**2
             if self.bw < 0: flip = -1   #u in si.splprep has to be increasing...
             else: flip = 1
             #Find the B-spline curve traced by the projected vectors,
@@ -241,10 +250,12 @@ class DataPortrait(DataPortrait):
             show_eigenprofiles(eigvec, seigvec, self.mean_prof,
                     self.smooth_mean_prof, title=title, **kwargs)
         else:
-            if ncomp: eigvec = self.eigvec[:,self.ieig[:ncomp]].T
-            else: eigvec = None
-            show_eigenprofiles(self.eigvec[:,self.ieig[:ncomp]].T, None,
-                    self.mean_prof, None, title=title, **kwargs)
+            if ncomp:
+                eigvec = self.eigvec[:,self.ieig[:ncomp]].T
+            else:
+                eigvec = None
+            show_eigenprofiles(eigvec, None, self.mean_prof, None, title=title,
+                    **kwargs)
 
     def show_spline_curve_projections(self, ncomp=None, title=None, **kwargs):
         """
@@ -348,7 +359,7 @@ if __name__ == "__main__":
     make_plots = options.make_plots
     quiet = options.quiet
 
-    dp = DataPortrait(datafile)
+    dp = DataPortrait(datafile, quiet=quiet)
 
     if norm in ("mean", "max", "prof", "rms", "abs"):
         dp.normalize_portrait(norm)
